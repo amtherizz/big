@@ -18,16 +18,20 @@ class NewsScraper:
         }
 
     def directUrl(self,url):
-        getdata = requests.get(url)
-        getdata = BeautifulSoup(getdata.text,'html.parser').find('div',attrs={'data-n-a-id':True})
+        try:
+            raw = requests.get(url).text
+            getdata = BeautifulSoup(raw,'html.parser').find('div',attrs={'data-n-a-id':True})
 
-        payload = {
-            'f.req': "[[[\"Fbv4je\",\"[\\\"garturlreq\\\",[[\\\"id\\\",\\\"ID\\\",[\\\"FINANCE_TOP_INDICES\\\",\\\"WEB_TEST_1_0_0\\\"],null,null,1,1,\\\"ID:id\\\",null,420,null,null,null,null,null,0,null,null,[1725841144,479645000]],\\\"id\\\",\\\"ID\\\",1,[2,3,4,8],1,0,\\\"775325150\\\",0,0,null,0],\\\""+getdata['data-n-a-id']+"\\\","+getdata['data-n-a-ts']+",\\\""+getdata['data-n-a-sg']+"\\\"]\",null,\"generic\"]]]"
-        }
-        response = requests.post(self.base+"/_/DotsSplashUi/data/batchexecute", data=payload, headers=self.headers)
-        # print(response.text)
-        url = re.search(r',\\"(.*?)\\",1', response.text).group(1)
-        return url
+            payload = {
+                'f.req': "[[[\"Fbv4je\",\"[\\\"garturlreq\\\",[[\\\"id\\\",\\\"ID\\\",[\\\"FINANCE_TOP_INDICES\\\",\\\"WEB_TEST_1_0_0\\\"],null,null,1,1,\\\"ID:id\\\",null,420,null,null,null,null,null,0,null,null,[1725841144,479645000]],\\\"id\\\",\\\"ID\\\",1,[2,3,4,8],1,0,\\\"775325150\\\",0,0,null,0],\\\""+getdata['data-n-a-id']+"\\\","+getdata['data-n-a-ts']+",\\\""+getdata['data-n-a-sg']+"\\\"]\",null,\"generic\"]]]"
+            }
+            response = requests.post(self.base+"/_/DotsSplashUi/data/batchexecute", data=payload, headers=self.headers)
+            # print(response.text)
+            url = re.search(r',\\"(.*?)\\",1', response.text).group(1)
+            return url
+        except Exception as e:
+            print((str(e)+' '+raw))
+            return(str(e)+' '+raw)
 
 
     def getNews(self,day=1):
@@ -39,7 +43,10 @@ class NewsScraper:
             href = x.find('a',href=True,jsname=False)
             title = href.text
             link = href['href']
-            url = self.directUrl(self.base + link[1:])
+            try:
+                url = self.directUrl(self.base + link[1:])
+            except:
+                news.append((title, self.base + link[1:]))
             news.append((title, (url.split('?')[0] if '?' in url else url)))
         return news
 
