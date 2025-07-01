@@ -17,18 +17,18 @@ def getNews():
     for title, url in news:
         full_text, mentions = init.getMention(url)
         sentiment_title = NewsSentiment().analys(title)
-        if sentiment_title=="positif":
+        if sentiment_title['label']=="positif":
             pos +=1
-        elif sentiment_title=='negatif':
+        elif sentiment_title['label']=='negatif':
             neg +=1
         else:
             net +=1
         mention_data = []
         for x in mentions:
             sentimentM = NewsSentiment().analys(x)
-            if sentimentM=="positif":
+            if sentimentM['label']=="positif":
                 pos +=1
-            elif sentimentM=='negatif':
+            elif sentimentM['label']=='negatif':
                 neg +=1
             else:
                 net +=1
