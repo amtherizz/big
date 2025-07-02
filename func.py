@@ -77,7 +77,7 @@ class NewsScraper:
             if 'Just a moment' in html:
                 return 'cloudflare',[]
             split = self._splitP(html)
-            return '\n'.join(split),[x for x in split if 'badan informasi geospasial' in x.lower() or "BIG" in x]
+            return '\n'.join(split),[x.strip() for x in split if 'badan informasi geospasial' in x.lower() or "BIG" in x]
         except Exception as e:
             return 'error '+str(e),[]
 
@@ -86,6 +86,7 @@ class NewsSentiment:
         self.translator = Translator()
 
     def analys(self, text):
+        text = text.strip()
         translated = self.translator.translate(text, src='id', dest='en').text
         blob = TextBlob(translated)
         polarity = blob.sentiment.polarity
