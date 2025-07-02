@@ -21,19 +21,19 @@ class NewsScraper:
     def directUrl(self,url):
         try:
             raw = requests.get(url,headers={
-  "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0",
-  "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-  "accept-language": "id,en-US;q=0.7,en;q=0.3",
-  "accept-encoding": "gzip, deflate, br, zstd",
-  "upgrade-insecure-requests": "1",
-  "service-worker-navigation-preload": "true",
-  "cookie": "OTZ=8146905_28_28__28_",
-  "sec-fetch-dest": "document",
-  "sec-fetch-mode": "navigate",
-  "sec-fetch-site": "same-origin",
-  "priority": "u=2",
-  "te": "trailers"
-}).text
+                "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0",
+                "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "accept-language": "id,en-US;q=0.7,en;q=0.3",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "upgrade-insecure-requests": "1",
+                "service-worker-navigation-preload": "true",
+                "cookie": "OTZ=8146905_28_28__28_",
+                "sec-fetch-dest": "document",
+                "sec-fetch-mode": "navigate",
+                "sec-fetch-site": "same-origin",
+                "priority": "u=2",
+                "te": "trailers"
+                }).text
             getdata = BeautifulSoup(raw,'html.parser').find('div',attrs={'data-n-a-id':True})
 
             payload = {
@@ -44,8 +44,8 @@ class NewsScraper:
             url = re.search(r',\\"(.*?)\\",1', response.text).group(1)
             return url
         except Exception as e:
-            print((str(e)+' '+raw))
-            print(url)
+            # print((str(e)+' '+raw))
+            # print(url)
             return url
         
     def getNews(self,_from=None,day=1,url=True):
@@ -61,14 +61,17 @@ class NewsScraper:
         news = []
         for x in artiker:
             href = x.find('a',href=True,jsname=False)
+            time = x.find('time',{'datetime':True}).get('datetime')
+            time = datetime.strptime(time, "%Y-%m-%dT%H:%M:%SZ")
+            time = time.strftime('%d/%m/%Y') 
             title = href.text
             link = href['href']
             if url:
                 try:
                     url = self.directUrl(self.base + link[1:])
                 except:
-                    news.append((title, self.base + link[1:]))
-                news.append((title, (url.split('?')[0] if '?' in url else url)))
+                    news.append((title, self.base + link[1:],time))
+                news.append((title, (url.split('?')[0] if '?' in url else url),time))
             else:
                 news.append(title)
         return news
