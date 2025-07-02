@@ -1,4 +1,5 @@
 import requests,re
+from datetime import datetime,timedelta
 from bs4 import BeautifulSoup
 from textblob import TextBlob
 from googletrans import Translator
@@ -9,9 +10,9 @@ class NewsScraper:
             'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0",
             'Accept-Encoding': "gzip, deflate, br, zstd",
             'accept-language': "id,en-US;q=0.7,en;q=0.3",
-            'referer': "https://news.google.com/",
+            # 'referer': "https://news.google.com/",
             'x-same-domain': "1",
-            'origin': "https://news.google.com",
+            # 'origin': "https://news.google.com",
             'sec-fetch-dest': "empty",
             'sec-fetch-mode': "cors",
             'sec-fetch-site': "same-origin",
@@ -19,7 +20,20 @@ class NewsScraper:
 
     def directUrl(self,url):
         try:
-            raw = requests.get(url).text
+            raw = requests.get(url,headers={
+  "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0",
+  "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "accept-language": "id,en-US;q=0.7,en;q=0.3",
+  "accept-encoding": "gzip, deflate, br, zstd",
+  "upgrade-insecure-requests": "1",
+  "service-worker-navigation-preload": "true",
+  "cookie": "OTZ=8146905_28_28__28_",
+  "sec-fetch-dest": "document",
+  "sec-fetch-mode": "navigate",
+  "sec-fetch-site": "same-origin",
+  "priority": "u=2",
+  "te": "trailers"
+}).text
             getdata = BeautifulSoup(raw,'html.parser').find('div',attrs={'data-n-a-id':True})
 
             payload = {
@@ -31,10 +45,16 @@ class NewsScraper:
             return url
         except Exception as e:
             print((str(e)+' '+raw))
-            return(str(e)+' '+raw)
+            print(url)
+            return url
+        
+    def getNews(self,_from=None,day=1,url=True):
+        if _from:
+            from_date = datetime.strptime(_from, '%Y/%m/%d')
+            today = datetime.today()
 
-
-    def getNews(self,day=1):
+            # Hitung selisih hari
+            day = (today - from_date).days
         search = requests.get(self.base+'/search?q=badan%20informasi%20geospasial%20when%3A'+str(day)+'d&hl=id&gl=ID&ceid=ID%3Aid')
         beauti = BeautifulSoup(search.text,'html.parser')
         artiker = beauti.find_all('article')
@@ -43,11 +63,14 @@ class NewsScraper:
             href = x.find('a',href=True,jsname=False)
             title = href.text
             link = href['href']
-            try:
-                url = self.directUrl(self.base + link[1:])
-            except:
-                news.append((title, self.base + link[1:]))
-            news.append((title, (url.split('?')[0] if '?' in url else url)))
+            if url:
+                try:
+                    url = self.directUrl(self.base + link[1:])
+                except:
+                    news.append((title, self.base + link[1:]))
+                news.append((title, (url.split('?')[0] if '?' in url else url)))
+            else:
+                news.append(title)
         return news
 
     def _splitP(self,html):
@@ -55,13 +78,9 @@ class NewsScraper:
         results = []
 
         for p in soup.find_all('p'):
-            # Ambil hanya tag <p> yang parent-nya bukan <p>
             if not p.find_parent('p'):
-                # Ambil semua <p> anak (nested), jika ada
                 nested = p.find_all('p')
-                # Kalau ada nested, ambil teks p luar tanpa nested, lalu nested-nya satu per satu
                 if nested:
-                    # Ambil teks p luar hanya sampai sebelum nested
                     outer_text = p.decode_contents().split('<p>')[0].strip()
                     if outer_text:
                         results.append(BeautifulSoup(outer_text, 'html.parser').get_text(strip=True))
@@ -80,13 +99,72 @@ class NewsScraper:
             return '\n'.join(split),[x.strip() for x in split if 'badan informasi geospasial' in x.lower() or "BIG" in x]
         except Exception as e:
             return 'error '+str(e),[]
+    def cnn(self,_from='2025/06/01',day=False):
+        now = datetime.today()
+        if day:
+            _from = now - timedelta(days=day)
+
+            _from = _from.strftime('%Y/%m/%d') 
+
+        page = requests.get('https://www.cnnindonesia.com/api/v3/search?query=badan informasi geospasial&idtype=1&start=0&limit=30&fromdate='+_from+'&todate='+now.strftime('%Y/%m/%d'))
+        # print(page.url)
+        data = page.json()['data']
+        # print(data)
+        news = [ (x['strjudul'],x['url']) for x in data]
+        return news
+    
+    def detik(self,_from,day=False):
+        page = requests.get('https://www.detik.com/search/searchall?query=badan%20informasi%20geospasial&result_type=latest&fromdatex=25/06/2025&todatex=02/07/2025',headers=self.headers)
+        beauti_page = BeautifulSoup(page.text,'html.parser').find_all('article')
+        news = []
+        for x in beauti_page:
+            x = x.find('a',href=True)
+            news.append((x['dtr-ttl'],x['href']))
+        return news
+    
+    def kompas(self):
+        page = requests.get('https://search.kompas.com/search?q=geospasial',headers=self.headers)
+        b_page = BeautifulSoup(page.text,'html.parser').find_all('div',{'class':'articleItem'})
+        news = []
+        for x in b_page:
+            title = x.find('h2').text
+            url = x.find('a').get('href')
+            # print(title,urls)
+            news.append((title,url))
+        return news
+
+
 
 class NewsSentiment:
     def __init__(self):
         self.translator = Translator()
-
+    def clean_text(self,text):
+    # Ubah ke huruf kecil
+        text = text.lower()
+        
+        # Hapus URL
+        text = re.sub(r'http\S+|www\S+|https\S+', '', text, flags=re.MULTILINE)
+        
+        # Hapus mention dan hashtag
+        text = re.sub(r'@\w+|#\w+', '', text)
+        
+        # Hapus angka
+        text = re.sub(r'\d+', '', text)
+        
+        # Hapus tanda baca
+        text = text.translate(str.maketrans('', '', string.punctuation))
+        
+        # Hapus whitespace berlebih
+        text = re.sub(r'\s+', ' ', text).strip()
+        
+        # Hapus stopwords
+        words = text.split()
+        # words = [word for word in words if word not in stop_words]
+        
+        return ' '.join(words)
     def analys(self, text):
         text = text.strip()
+        text = self.clean_text(text)
         translated = self.translator.translate(text, src='id', dest='en').text
         blob = TextBlob(translated)
         polarity = blob.sentiment.polarity
@@ -100,6 +178,9 @@ class NewsSentiment:
             "label": label,
             "score": round(polarity, 3)
         }
+    
+    def analys2(self,text):
+        pass
 
 
 class tempMail:
@@ -114,6 +195,7 @@ class tempMail:
                 code =  re.search(r'>(\d{6})<',x["content"]).group(1)
                 return code
 # scraper = NewsScraper()
+# print(scraper.cnn())
 # print(scraper.getMention('https://www.tempo.co/politik/badan-informasi-geospasial-pastikan-4-nama-pulau-aceh-tetap-sama-1825484'))
 
 # class sentimenAnalys:
